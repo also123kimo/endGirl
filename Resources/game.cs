@@ -50,6 +50,7 @@ public class game : MonoBehaviour {
 	GameObject panel;
 	GameObject music;
 	GameObject sound;
+	GameObject setting;
 	Image background;
 	GameObject[] playerText;
 	GameObject[] optionText;
@@ -63,6 +64,7 @@ public class game : MonoBehaviour {
 	JsonData jsonOptionText;
 	JsonData jsonPage;
 	JsonData jsonTable;
+	JsonData jsonTableBegin;
 	JsonData jsonTextCss;
 	JsonData jsonImgCss;
 	JsonData jsonName;
@@ -79,29 +81,62 @@ public class game : MonoBehaviour {
 	string fontName;
 	float scale;
 	float tempWidth;
-	string defaultScene="1";
+	string defaultScene="begin";
 	string sceneType="";
 	string musicNow;
 	float  musicNowVolume;
+	string lang;
+	string langConfig;
+	string gameAge;
 
 	void Start () {
-		//PlayerPrefs.DeleteAll();
+		//lang="enNoRape";
+		lang="en";
+		//lang="ch";
+		//gameAge = "fullAge";
+		gameAge = "18+";
+		switch (lang) {
+		case "en":
+		case "enNoRape":
+			langConfig="en";
+			break;
+		default:
+			langConfig="ch";
+			break;
+		}
 		tempWidth = 1280;
+		#if UNITY_IOS || UNITY_ANDROID
+			tempWidth=1920;
+		#endif
 		scale = tempWidth / 960f;  //1102:620 ,  1156:650  1024:576  1280:720
 		xBegin = 960f; yBegin = 540f;
 		xMax = xBegin*scale; yMax = yBegin*scale;
 		loadCount = 0;
 		fontName = "NotoSansCJKtc-Medium";
-		//fontName = "PingFang";
+		//fontName = "Arial";
 		StartCoroutine(jsonStringPath ("/scene.json"));
-		StartCoroutine(jsonStringPath ("/textCh.json"));
-		StartCoroutine(jsonStringPath ("/nameCh.json"));
-		StartCoroutine(jsonStringPath ("/optionCh.json"));
 		StartCoroutine(jsonStringPath ("/page.json"));
 		StartCoroutine(jsonStringPath ("/dataTable.json"));
 		StartCoroutine(jsonStringPath ("/textStyle.json"));
 		StartCoroutine(jsonStringPath ("/imgStyle.json"));
 		StartCoroutine(jsonStringPath ("/animate.json"));
+		switch (lang) {
+			case "en":
+				StartCoroutine(jsonStringPath ("/textEn.json"));
+				StartCoroutine(jsonStringPath ("/nameEn.json"));
+				StartCoroutine(jsonStringPath ("/optionEn.json"));
+				break;
+			case "enNoRape":
+				StartCoroutine(jsonStringPath ("/textEnNoRape.json"));
+				StartCoroutine(jsonStringPath ("/nameEn.json"));
+				StartCoroutine(jsonStringPath ("/optionEn.json"));
+				break;
+			default:
+				StartCoroutine(jsonStringPath ("/textCh.json"));
+				StartCoroutine(jsonStringPath ("/nameCh.json"));
+				StartCoroutine(jsonStringPath ("/optionCh.json"));
+				break;
+		}
 		//Screen.SetResolution(Mathf.FloorToInt(xMax),Mathf.FloorToInt(yMax),false);  
 	}
 
@@ -121,10 +156,10 @@ public class game : MonoBehaviour {
 	}
 
 	public void initialGame(string i){
-		destroyByTag("main");
+		destroyByTag ("main");
 		sceneType = "";
 		jsonTable ["i"] ["now"] = i;
-		//defaultScene = i;
+
 		newCanvas = new GameObject ("Canvas");
 		newCanvas.tag = "main";
 		c = newCanvas.AddComponent<Canvas> ();
@@ -135,20 +170,20 @@ public class game : MonoBehaviour {
 		newCanvas.AddComponent<CanvasScaler> ();
 		newCanvas.AddComponent<GraphicRaycaster> ();
 
-		//newCanvas.transform.localScale = new Vector2(1.2f, 1.2f);
-
-		if (jsonScene [i] ["nextSceneType"].ToString () == "condition") {
-			condition (i);
+		if(i=="begin"){
+			create_index_game ();
 		}
-		else{
-			createBg(i,xBegin,yBegin);
+		else if (jsonScene [i] ["nextSceneType"].ToString () == "condition") {
+			condition (i);
+		} else {
+			createBg (i, xBegin, yBegin);
 			createImgList (i);
 			createMusic (i);
 			createSound (i);
-			if (((IDictionary)jsonPage[i]).Contains ("conditionState")) {
+			if (((IDictionary)jsonPage [i]).Contains ("conditionState")) {
 				stateBar ();
 			}
-			if (jsonPage [i] ["contextCs"].ToString ()!= "0") {
+			if (jsonPage [i] ["contextCs"].ToString () != "0") {
 				JsonData contextCs = jsonTextCss [jsonPage [i] ["contextCs"].ToString ()];
 				cWidth = float.Parse (contextCs ["width"].ToString ());
 				cHeight = float.Parse (contextCs ["height"].ToString ());
@@ -157,30 +192,31 @@ public class game : MonoBehaviour {
 				fontSize = int.Parse (contextCs ["fontSize"].ToString ());
 				textAlign = contextCs ["textAlign"].ToString ();
 				string textSpeed = jsonPage [i] ["textSpeed"].ToString ();
-				string color =contextCs ["color"].ToString ();
-				cText = textFunc(i);
-				createText (cWidth, cHeight, cLeft, cTop, fontSize, textAlign, cText ,color ,"contextCs",i,textSpeed);
+				string color = contextCs ["color"].ToString ();
+				cText = textFunc (i);
+				createText (cWidth, cHeight, cLeft, cTop, fontSize, textAlign, cText, color, "contextCs", i, textSpeed);
 				if ((IDictionary)jsonName [i] != null) {
-					createText (150, 70, 415, 390, 22, "center", jsonName [i].ToString (),color);
+					createText (175, 70, 405, 412, 22, "center", jsonName [i].ToString (), color);
 				}	
 			}
 			patchData (i);
 			if (jsonScene [i] ["nextSceneType"].ToString () == "option") {
-				if(jsonPage [i] ["contextCs"].ToString ()== "0"){
+				if (jsonPage [i] ["contextCs"].ToString () == "0") {
 					createOption (i);
 				}
-			}
-			else {
+			} else {
 				Button b = newCanvas.AddComponent<Button> ();
 				b.onClick.AddListener (() => BtnFun (i));	
 			}
 		}
 
-		GameObject setting=createImg (50f, 50f, 900f, 5f, "ui", "setting_ch");
-		Button setB = setting.AddComponent<Button> ();
-		setB.onClick.AddListener (() => {
-			settingPopup();
-		});
+		if(jsonTable ["i"] ["now"].ToString()!="begin"){
+			GameObject setting=createImg (60f, 60f, 890f, 10f, "ui", "setting_"+langConfig);
+			Button setB = setting.AddComponent<Button> ();
+			setB.onClick.AddListener (() => {
+				settingPopup ();
+			});
+		}
 	}
 
 	public void textAnimateCallBack(string i){
@@ -219,14 +255,18 @@ public class game : MonoBehaviour {
 			jsonScene=JsonMapper.ToObject<JsonData> (jsonString);
 			break;
 		case "/textCh.json":
+		case "/textEn.json":
+		case "/textEnNoRape.json":
 			jsonText = new JsonData() ;
 			jsonText= JsonMapper.ToObject<JsonData> (jsonString);
 			break;
 		case "/nameCh.json":
+		case "/nameEn.json":
 			jsonName = new JsonData() ;
 			jsonName= JsonMapper.ToObject<JsonData> (jsonString);
 			break;
 		case "/optionCh.json":
+		case "/optionEn.json":
 			jsonOptionText = new JsonData() ;
 			jsonOptionText= JsonMapper.ToObject<JsonData> (jsonString);
 			break;
@@ -237,6 +277,8 @@ public class game : MonoBehaviour {
 		case "/dataTable.json":
 			jsonTable = new JsonData() ;
 			jsonTable= JsonMapper.ToObject<JsonData> (jsonString);
+			jsonTableBegin = new JsonData() ;
+			jsonTableBegin= JsonMapper.ToObject<JsonData> (jsonString);
 			break;
 		case "/textStyle.json":
 			jsonTextCss = new JsonData() ;
@@ -254,6 +296,7 @@ public class game : MonoBehaviour {
 		if(loadCount==9){
 			initialGame (defaultScene);
 			//initialGame ("638");
+			//create_index_game();
 		}
 	}
 
@@ -267,12 +310,18 @@ public class game : MonoBehaviour {
 		List<GameObject> playerText = new List<GameObject>();
 		playerText.Add(new GameObject("Text"));
 		playerText [0].tag = "text";
+		Outline uiOutline = playerText[0].AddComponent<Outline>();
 		RectTransform uiPos = playerText[0].AddComponent<RectTransform>();
 		Text uiText = playerText[0].AddComponent<Text>();
 		uiPos.sizeDelta = new Vector2 (cWidth, cHeight); 
 		uiPos.anchoredPosition = new Vector2 (xPosConvert(cLeft,cWidth) ,yPosConvert(cTop,cHeight)); 
+		uiOutline.effectDistance = new Vector2 (1,1);
+		uiOutline.effectColor = Color.black;
 		uiText.supportRichText = true;
 		uiText.fontSize = fontsize;
+		#if UNITY_IOS || UNITY_ANDROID
+			uiText.fontSize = fontsize+2;
+		#endif
 		uiText.font = (Font)Resources.Load(fontName) ;
 		switch (TextAlign){
 			case "left":
@@ -334,8 +383,19 @@ public class game : MonoBehaviour {
 			cHeight= float.Parse (jsonImgCss[key] ["height"].ToString ());
 			cLeft = float.Parse (jsonImgCss[key] ["left"].ToString ());
 			cTop = float.Parse (jsonImgCss[key] ["top"].ToString ());
+			if (!((IDictionary)jsonImgCss[key]).Contains ("folder")) {
+				break;
+			} 
 			folder = jsonImgCss[key]["folder"].ToString ();
-			url = jsonImgCss [key] ["url"].ToString ();
+			if (gameAge == "fullAge") {
+				if (((IDictionary)jsonImgCss [key]).Contains ("urlFullAge")) {
+					url = jsonImgCss [key] ["urlFullAge"].ToString ();
+				} else {
+					url = jsonImgCss [key] ["url"].ToString ();
+				}
+			} else {
+				url = jsonImgCss [key] ["url"].ToString ();
+			}
 			createImg (cWidth, cHeight, cLeft, cTop, folder, url, animateKey);	
 		}
 	}
@@ -397,10 +457,20 @@ public class game : MonoBehaviour {
 	}
 	public void createBg(string i,float x,float y){
 		string animateKey = "0";
+		string bgString = "";
 		if (((IDictionary)jsonPage[i]).Contains ("bgAnimate")) {
 			animateKey = jsonPage [i] ["bgAnimate"].ToString ();
 		} 
-		createImg(x,y,0,0, "Background", jsonPage [i] ["background"].ToString () ,animateKey,"background");
+		if (gameAge == "fullAge") {
+			if (((IDictionary)jsonPage [i]).Contains ("bgFullAge")) {
+				bgString = jsonPage [i] ["bgFullAge"].ToString ();
+			} else {
+				bgString = jsonPage [i] ["background"].ToString ();
+			}
+		} else {
+			bgString = jsonPage [i] ["background"].ToString ();
+		}
+		createImg(x,y,0,0, "Background", bgString ,animateKey,"background");
 	}
 
 	public void createMusic(string i){
@@ -452,27 +522,30 @@ public class game : MonoBehaviour {
 	}
 
 	public void stateBar(){
-		int top = 5; //3
-		int barHeight = 40;
-		int fontSize = 18;  //20
+		int top = 2; //3
+		#if UNITY_IOS || UNITY_ANDROID
+			top=1;
+		#endif
+		int barHeight = 32; // 32
+		int fontSize = 18;  // cellPhone 20
 		int fixNumLeft = 12;
 		int fixTextLeft = 8;
 		int foodDaily = int.Parse (jsonTable ["foodDaily"] ["now"].ToString ());
 		createImg (640, barHeight, 0, 0, "UI", "stateBar");	
 		int leftDay = 10 - int.Parse (jsonTable ["dayTimes"] ["now"].ToString ());
-		createText (50, barHeight, 20, top, fontSize, "left", "體力:");
+		createText (50, barHeight, 20, top, fontSize, "left", jsonOptionText ["100"].ToString()+":");
 		createText (30, barHeight, 60+(fixNumLeft*1), top, fontSize, "left", jsonTable["tp"]["now"].ToString());
-		createText (50, barHeight, 95+(fixTextLeft*1), top, fontSize, "left", "糧食:");
+		createText (50, barHeight, 95+(fixTextLeft*1), top, fontSize, "left", jsonOptionText ["94"].ToString()+":");
 		string FColor = "255,255,255";
 		if(int.Parse (jsonTable ["food"] ["now"].ToString ()) < foodDaily){
 			FColor = "255,246,0";
 		}
 		createText (30, barHeight, 135+(fixNumLeft*2), top, fontSize, "left", jsonTable["food"]["now"].ToString(),FColor);
-		createText (50, barHeight, 175+(fixTextLeft*2), top, fontSize, "left", "建材:");
-		createText (30, barHeight, 210+(fixNumLeft*3), top, fontSize, "left", jsonTable["material"]["now"].ToString());
-		createText (50, barHeight, 255+(fixTextLeft*3), top, fontSize, "left", "手槍:");
-		createText (30, barHeight, 285+(fixNumLeft*4), top, fontSize, "left", jsonTable["gun"]["now"].ToString());
-		createText (80, barHeight, 320+(fixTextLeft*5), top, fontSize, "left", "崩潰值:");	
+		createText (50+35, barHeight, 175+(fixTextLeft*2), top, fontSize, "left", jsonOptionText ["95"].ToString()+":");
+		createText (30, barHeight, 210+(fixNumLeft*3)+35, top, fontSize, "left", jsonTable["material"]["now"].ToString());
+		createText (50, barHeight, 255+(fixTextLeft*3)+35, top, fontSize, "left", jsonOptionText ["96"].ToString()+":");
+		createText (30, barHeight, 285+(fixNumLeft*4)+35, top, fontSize, "left", jsonTable["gun"]["now"].ToString());
+		createText (80, barHeight, 320+(fixTextLeft*5)+35, top, fontSize, "left", jsonOptionText ["97"].ToString()+":");	
 		int num = int.Parse (jsonTable ["disappear"] ["now"].ToString ());
 		string DColor = "255,255,255";
 		if(num>=5){
@@ -490,10 +563,10 @@ public class game : MonoBehaviour {
 		else if(i>=73){
 			leftDayText ="1";
 		}
-		createText (30, barHeight, 375+(fixNumLeft*5), top, fontSize, "left", jsonTable["disappear"]["now"].ToString(),DColor);
-		createText (110, barHeight, 410+(fixTextLeft*7), top, fontSize, "left", "剩餘救援天數:");
-		createText (30, barHeight, 515+(fixNumLeft*5), top, fontSize, "left", leftDayText);
-		createText (110, barHeight, 540+(fixTextLeft*7), top, fontSize, "left", "天");
+		createText (30, barHeight, 375+(fixNumLeft*5)+35, top, fontSize, "left", jsonTable["disappear"]["now"].ToString(),DColor);
+		createText (100, barHeight, 410+(fixTextLeft*7)+35, top, fontSize, "left", jsonOptionText ["98"].ToString()+":");
+		createText (30, barHeight, 505+(fixNumLeft*5)+35, top, fontSize, "left", leftDayText);
+		//createText (50, barHeight, 535+(fixTextLeft*7)+35, top, fontSize, "left", jsonOptionText ["99"].ToString());
 	}
 
 	public void condition(string i){
@@ -671,7 +744,7 @@ public class game : MonoBehaviour {
 
 	public string textFunc(string i){;
 		string text = jsonText [i].ToString ();
-		if (text.LastIndexOf ("/[") >= 0) {
+		while (text.LastIndexOf ("/[") >= 0) {
 			string[] tArray = text.Split(new string[] {"/["}, StringSplitOptions.None);
 			string table = tArray[1].Substring (tArray[1].LastIndexOf ("/[") + 1, tArray[1].LastIndexOf ("]"));
 			string tableData = jsonTable [table] ["now"].ToString();
@@ -706,7 +779,8 @@ public class game : MonoBehaviour {
 	public void createOption(string i){
 		List<optionPosObj> posObj = new List<optionPosObj>();
 		float xPos = 0;
-		float yPos = 30;
+		float yPos = 40;
+		posObj.Add(new optionPosObj());
 		posObj.Add(new optionPosObj());
 		posObj.Add(new optionPosObj());
 		posObj.Add(new optionPosObj());
@@ -726,6 +800,9 @@ public class game : MonoBehaviour {
 			optionCount++;
 		}
 		if (jsonScene [i]["option5"].ToString()!="0") {
+			optionCount++;
+		}
+		if (jsonScene [i]["option6"].ToString()!="0") {
 			optionCount++;
 		}
 
@@ -754,14 +831,22 @@ public class game : MonoBehaviour {
 			posObj[3].x = xPos;  posObj[3].y = yPos-80;
 			posObj[4].x = xPos;  posObj[4].y = yPos-160;
 		}
+		if (optionCount == 6) {
+			posObj[0].x = xPos;  posObj[0].y = 200;
+			posObj[1].x = xPos;  posObj[1].y = 120;
+			posObj[2].x = xPos;  posObj[2].y = 40;
+			posObj[3].x = xPos;  posObj[3].y = -40;
+			posObj[4].x = xPos;  posObj[4].y = -120;
+			posObj[5].x = xPos;  posObj[5].y = -200;
+		}
 		List<GameObject> optionText = new List<GameObject>();
 		for (int k = 0; k < optionCount; k++) {
 			panel = new GameObject ("Panel");
 			panel.tag = "img";
 			panel.AddComponent<CanvasRenderer> ();
 			background = panel.AddComponent<Image> ();
-			background.sprite =  Resources.Load<Sprite>("UI/talkWin5");	
-			background.GetComponent<RectTransform> ().sizeDelta = new Vector2 (480f*scale, 50*scale); 
+			background.sprite =  Resources.Load<Sprite>("UI/optionBar");	
+			background.GetComponent<RectTransform> ().sizeDelta = new Vector2 (480f*scale, 45*scale); 
 			background.GetComponent<RectTransform> ().anchoredPosition = new Vector2 (posObj[k].x*scale, posObj[k].y*scale); 
 			panel.transform.SetParent (newCanvas.transform, false);	
 
@@ -769,10 +854,13 @@ public class game : MonoBehaviour {
 			RectTransform uiPos = optionText [k].AddComponent<RectTransform> ();
 			optionText [k].tag = "text";
 			Text uiText = optionText [k].AddComponent<Text> ();
-			uiPos.sizeDelta = new Vector2 (480*scale, 50*scale); 
+			uiPos.sizeDelta = new Vector2 (480*scale, 45*scale); 
 			uiPos.anchoredPosition = new Vector2 (posObj[k].x*scale, posObj[k].y*scale); 
 			uiText.supportRichText = true;
-			uiText.fontSize =  Mathf.FloorToInt(24f* scale);
+			uiText.fontSize =  Mathf.FloorToInt(22f* scale); // cellPhone 24
+			#if UNITY_IOS || UNITY_ANDROID
+				uiText.fontSize =  Mathf.FloorToInt(24f* scale); 
+			#endif
 			uiText.font = (Font)Resources.Load(fontName);
 			uiText.alignment = TextAnchor.MiddleCenter;
 			uiText.horizontalOverflow = HorizontalWrapMode.Wrap;
@@ -796,11 +884,20 @@ public class game : MonoBehaviour {
 	public void BtnFun(string i){
 		if (sceneType != "popup") {
 			destroyByTag ("main");
-			initialGame (jsonScene [i] ["nextSceneId"].ToString ());
+			if (gameAge == "fullAge") {
+				//Debug.Log (((IDictionary)jsonScene [i]).Contains ("nextSceneFullAge"));
+				if (((IDictionary)jsonScene [i]).Contains ("nextSceneFullAge")) {
+					initialGame (jsonScene [i] ["nextSceneFullAge"].ToString ());
+				} else {
+					initialGame (jsonScene [i] ["nextSceneId"].ToString ());
+				}
+			} else {
+				initialGame (jsonScene [i] ["nextSceneId"].ToString ());
+			}
 		}
 	}
 	public void optionBtnFun(string i){
-		playSound ("click");
+		//playSound ("click");
 		switch (i){
 			case "saving":
 				save_and_loadData ("saving");
@@ -810,15 +907,52 @@ public class game : MonoBehaviour {
 				break;
 			case "cg":
 				break;
+			case "down":
+				//initialGame ("begin");
+				break;
 			case "continue":
 				initialGame (jsonTable ["i"] ["now"].ToString ());
 				break;
 			case "quit":
+				initialGame ("begin");
 				break;
 			default:
 				initialGame (i);
 				break;
 		}
+	}
+
+
+	public void create_index_game(){
+		destroyByTag("text");
+		destroyByTag("img");
+		playMusic ("魔法幻想", 10);
+		createImg (960f, 540f, 0f, 0f, "UI", "index_"+langConfig);
+		GameObject indexText1=createImg (360f, 85f, 600f, 75f, "UI", "newGame_"+langConfig);
+		GameObject indexText2=createImg (360f, 85f, 600f, 150f, "UI", "cotinue_"+langConfig);
+		//GameObject indexText3=createImg (171f, 36f, 600f, 350f, "UI", "cgLibrary_"+langConfig);
+		Button indexTextBtn1 = indexText1.AddComponent<Button> ();
+		indexTextBtn1.onClick.AddListener (() => {
+			foreach (string key in jsonTableBegin.Keys) {
+				//Debug.Log(key);
+				if (!((IDictionary)jsonTableBegin[key]).Contains ("start")) {
+					jsonTable[key]["now"]="";
+				} 
+				else{
+					jsonTable[key]["now"]=jsonTableBegin[key]["start"];
+				}
+			}
+			initialGame ("1");
+		});
+
+		Button indexTextBtn2 = indexText2.AddComponent<Button> ();
+		indexTextBtn2.onClick.AddListener (() => {
+			save_and_loadData ("loading");
+		});
+//		Button indexTextBtn3 = indexText3.AddComponent<Button> ();
+//		indexTextBtn3.onClick.AddListener (() => {
+//			
+//		});
 	}
 
 	public void save_and_loadData(string type="saving"){
@@ -941,10 +1075,15 @@ public class game : MonoBehaviour {
 			save_and_loadBtnFunc("s6",saving6,type);
 		});
 
-		GameObject close=createImg (45f, 45f, 910f, 30f, "UI", "close");
+		GameObject close=createImg (50f, 50f, 900f, 25f, "UI", "close");
 		Button setClose = close.AddComponent<Button> ();
 		setClose.onClick.AddListener (() => {
-			settingPopup();
+			if(jsonTable ["i"] ["now"].ToString()=="begin"){
+				initialGame ("begin");
+			}
+			else{
+				settingPopup();
+			}
 		});
 	}
 
